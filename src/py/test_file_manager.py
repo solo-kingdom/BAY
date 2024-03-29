@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from src.py.file_manager import FileManager, LocalFileSystem
+from src.py.file_manager import FileManager, LocalFileSystem, File
 
 
 class TestFileManager(TestCase):
@@ -18,9 +18,23 @@ class TestFileManager(TestCase):
         r.append('3')
         r.append('2')
 
+    def test_file(self):
+        fs = LocalFileSystem()
+        f = [File(fs, 'a.mp3'), File(fs, 'a.flac')]
+        f[0].priority = 1
+        f[1].priority = 2
+        f = sorted(f)
+        print(f)
+
     def test_file_manager(self):
         fs = LocalFileSystem()
         fm = FileManager(fs)
-        fm.add_path("/Users/wii/Downloads/")
-        print(fm.get_music_list())
-        fm.music_file_manager.get_deduplicate()
+        fm.add_path("/home/wii/Downloads/")
+        # print(fm.get_music_list())
+        r = fm.music_file_manager.get_deduplicate()
+        print(r)
+        r = fm.music_file_manager.get_deletable()
+        print(r)
+        for i in r:
+            print(r)
+            i.delete()

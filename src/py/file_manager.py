@@ -1,12 +1,29 @@
 #!/bin/python3
 import abc
 import os
+from typing import List
+import logging
+
+# logging.basicConfig()
+formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+LOG = logging.getLogger('BAY')
+LOG.addHandler(ch)
 
 
 class FileSystem(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def list(self, path: str):
         raise NotImplementedError()
+
+    @abc.abstractmethod
+    def delete_file(self, path: str):
+        raise NotImplementedError()
+
+    def delete_files(self, pts: List[str]):
+        for pt in pts:
+            self.delete_file(pt)
 
 
 class File:
@@ -17,6 +34,7 @@ class File:
         self.extension = self.path.split('.')[-1]
         self.file_system = file_system
         self.priority = -1
+        self.deleted = False
 
     def __str__(self):
         return self.__repr__()
@@ -24,10 +42,21 @@ class File:
     def __repr__(self):
         return '{} {}'.format(self.priority, self.name)
 
+    def __lt__(self, other):
+        return self.priority > other.priority
+
+    def delete(self):
+        self.file_system.delete_file(self.path)
+        self.deleted = True
+        LOG.warning("delete file. [file={}]".format(self))
+
 
 class LocalFileSystem(FileSystem):
     def list(self, path: str):
-        return os.listdir(path)
+        return [os.path.join(path, i) for i in os.listdir(path)]
+
+    def delete_file(self, path: str):
+        return os.remove(path)
 
 
 class FileSystemManager:
@@ -45,30 +74,66 @@ class FileSystemManager:
 
 
 class FileManager(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self.files = []
+        self.file_names = {}
+
     @abc.abstractmethod
     def is_fit(self, name: str):
         raise NotImplementedError()
+
+    def add(self, file: File):
+        self.files.append(file)
+        if file.name_without_extension in self.file_names:
+            self.file_names[file.name_without_extension].append(file)
+        else:
+            self.file_names[file.name_without_extension] = [file]
+
+    @abc.abstractmethod
+    def get_deduplicate(self):
+        return []
+
+    @abc.abstractmethod
+    def get_deletable(self):
+        return []
+
+
+class NormalFileManager(FileManager):
+    def __init__(self):
+        super().__init__()
+
+    def get_deduplicate(self):
+        return super().get_deduplicate()
+
+    def get_deletable(self):
+        return super().get_deletable()
+
+    def is_fit(self, name: str):
+        return True
 
 
 class MusicFileManager(FileManager):
     music_file_extensions = ["dts", "flac", "ape", "wma", "mp3"]
 
     def __init__(self):
-        self.files = []
-        self.file_names = {}
+        super().__init__()
 
     def add(self, file: File):
+        super().add(file)
         file.priority = len(self.music_file_extensions) - self.music_file_extensions.index(file.extension)
-        self.files.append(File)
-        if file.name_without_extension in self.file_names:
-            self.file_names[file.name_without_extension].append(file)
-        else:
-            self.file_names[file.name_without_extension] = [file]
+        self.file_names[file.name_without_extension] = sorted(self.file_names[file.name_without_extension])
 
     def get_deduplicate(self):
         rst = []
         for k, v in self.file_names.items():
-            print(k, v)
+            rst.append(v[0])
+        return rst
+
+    def get_deletable(self):
+        rst = []
+        for k, v in self.file_names.items():
+            rst += v[1:]
+        return rst
 
     def is_fit(self, name: str):
         ext = name.split('.')[-1].lower()
