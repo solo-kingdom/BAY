@@ -38,3 +38,12 @@ class TestFileManager(TestCase):
         for i in r:
             print(r)
             i.delete()
+
+    def test_copy(self):
+        fs = LocalFileSystem()
+        fm = FileManager(fs)
+        fm.add_path("/home/wii/Downloads/")
+        r = fm.music_file_manager.get_deduplicate()
+        for i in r:
+            print(i)
+            fs.copy(i.path, i.path + '.back')

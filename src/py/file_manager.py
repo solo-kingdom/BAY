@@ -25,6 +25,10 @@ class FileSystem(metaclass=abc.ABCMeta):
         for pt in pts:
             self.delete_file(pt)
 
+    @abc.abstractmethod
+    def copy(self, source: str, destination: str):
+        raise NotImplementedError()
+
 
 class File:
     def __init__(self, file_system: FileSystem, path: str):
@@ -52,6 +56,10 @@ class File:
 
 
 class LocalFileSystem(FileSystem):
+    def copy(self, source: str, destination: str):
+        with open(source, 'rb') as src, open(destination, 'wb') as dst:
+            dst.write(src.read())
+
     def list(self, path: str):
         return [os.path.join(path, i) for i in os.listdir(path)]
 
