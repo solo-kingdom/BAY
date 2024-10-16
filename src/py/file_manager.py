@@ -2,14 +2,8 @@
 import abc
 import os
 from typing import List
-import logging
-
-# logging.basicConfig()
-formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-LOG = logging.getLogger('BAY')
-LOG.addHandler(ch)
+from src.py.log import LOG
+from src.py.utils import *
 
 
 class FileSystem(metaclass=abc.ABCMeta):
@@ -28,6 +22,16 @@ class FileSystem(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def copy(self, source: str, destination: str):
         raise NotImplementedError()
+
+
+class Path:
+    def __init__(self, path: str):
+        self.origin = path
+        self.exists = os.path.exists(path)
+        self.is_dir = os.path.isdir(path)
+        splits = os.path.split(self.origin)
+        self.latest_name = splits[-1]
+        self.parent_path = splits[0]
 
 
 class File:
@@ -56,8 +60,10 @@ class File:
 
 
 class LocalFileSystem(FileSystem):
-    def copy(self, source: str, destination: str):
-        with open(source, 'rb') as src, open(destination, 'wb') as dst:
+    def copy(self, source: File, destination: str):
+        if os.path.exists(destination):
+            raise FileExistsError
+        with open(source.path, 'rb') as src, open(destination, 'wb') as dst:
             dst.write(src.read())
 
     def list(self, path: str):
@@ -65,6 +71,34 @@ class LocalFileSystem(FileSystem):
 
     def delete_file(self, path: str):
         return os.remove(path)
+
+    def move(self, source: File, destination: str):
+        LOG.info("[move] {} -> {}".format(source, destination))
+        path = Path(destination)
+        if path.exists and path.is_dir:
+            self.copy(source, os.path.join(destination, source.name))
+        else:
+            self.copy(source, destination)
+        self.delete_file(source.path)
+
+    def move_with_confirm(self, sources: List[File], destination: str):
+        ans = input("move {} files to {}? [N/y]\n".format(len(sources), destination))
+        if ans not in ["y", "Y"]:
+            LOG.warning("[{}] user canceled".format(func_name()))
+            return
+        for source in sources:
+            self.move(source, destination)
+
+    def copy_with_confirm(self, sources: List[File], destination: str):
+        ans = input("copy {} files to {}? [N/y]\n".format(len(sources), destination))
+        if ans not in ["y", "Y"]:
+            LOG.warning("[{}] user canceled".format(func_name()))
+            return
+        for source in sources:
+            try:
+                self.copy(source, destination)
+            except FileExistsError as e:
+                LOG.warning("[{}] {}. [file={}]".format(func_name(), e, source.name))
 
 
 class FileSystemManager:
@@ -83,8 +117,8 @@ class FileSystemManager:
 
 class FileManager(metaclass=abc.ABCMeta):
     def __init__(self):
-        self.files = []
-        self.file_names = {}
+        self.files: List[File] = []
+        self.file_names: dict[str, List[File]] = {}
 
     @abc.abstractmethod
     def is_fit(self, name: str):
@@ -98,11 +132,11 @@ class FileManager(metaclass=abc.ABCMeta):
             self.file_names[file.name_without_extension] = [file]
 
     @abc.abstractmethod
-    def get_deduplicate(self):
+    def get_deduplicate(self) -> List[File]:
         return []
 
     @abc.abstractmethod
-    def get_deletable(self):
+    def get_deletable(self) -> List[File]:
         return []
 
 
@@ -137,7 +171,7 @@ class MusicFileManager(FileManager):
             rst.append(v[0])
         return rst
 
-    def get_deletable(self):
+    def get_deletable(self) -> List[File]:
         rst = []
         for k, v in self.file_names.items():
             rst += v[1:]

@@ -46,4 +46,11 @@ class TestFileManager(TestCase):
         r = fm.music_file_manager.get_deduplicate()
         for i in r:
             print(i)
-            fs.copy(i.path, i.path + '.back')
+            fs.copy(i, i.path + '.back')
+
+    def test_filter_musics(self):
+        fs = LocalFileSystem()
+        fm = FileManager(fs)
+        fm.add_path("/Volumes/ssd/音乐/国语")
+        rm = fm.music_file_manager.get_deletable()
+        fs.move_with_confirm(rm, '/Volumes/ssd/音乐/备份/')
