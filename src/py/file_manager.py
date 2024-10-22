@@ -23,6 +23,18 @@ class FileSystem(metaclass=abc.ABCMeta):
     def copy(self, source: str, destination: str):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def move_with_confirm(self, sources: List['File'], destination: str):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def copy_with_confirm(self, sources: List['File'], destination: str):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def delete_with_confirm(self, sources: List['File']):
+        raise NotImplementedError()
+
 
 class Path:
     def __init__(self, path: str):
@@ -100,6 +112,17 @@ class LocalFileSystem(FileSystem):
             except FileExistsError as e:
                 LOG.warning("[{}] {}. [file={}]".format(func_name(), e, source.name))
 
+    def delete_with_confirm(self, sources: List['File']):
+        ans = input("delete {} files? [N/y]\n".format(len(sources)))
+        if ans not in ["y", "Y"]:
+            LOG.warning("[{}] user canceled".format(func_name()))
+            return
+        for source in sources:
+            try:
+                self.delete_file(source.path)
+            except FileNotFoundError as e:
+                LOG.warning("[{}] {}. [file={}]".format(func_name(), e, source.name))
+
 
 class FileSystemManager:
     def __init__(self):
@@ -162,7 +185,7 @@ class MusicFileManager(FileManager):
 
     def add(self, file: File):
         super().add(file)
-        file.priority = len(self.music_file_extensions) - self.music_file_extensions.index(file.extension)
+        file.priority = len(self.music_file_extensions) - self.music_file_extensions.index(file.extension.lower())
         self.file_names[file.name_without_extension] = sorted(self.file_names[file.name_without_extension])
 
     def get_deduplicate(self):
@@ -188,12 +211,15 @@ class FileManager:
         self.music_file_manager = MusicFileManager()
         self.file_manager_list = [self.music_file_manager]
 
-    def add_path(self, path: str):
+    def add_path(self, path: str, recursive: bool = False):
         file_list = self.file_system.list(path)
         for file in file_list:
-            for m in self.file_manager_list:
-                if m.is_fit(file):
-                    m.add(File(self.file_system, file))
+            if os.path.isdir(file):
+                self.add_path(file, recursive)
+            else:
+                for m in self.file_manager_list:
+                    if m.is_fit(file):
+                        m.add(File(self.file_system, file))
 
     def get_music_list(self):
         return self.music_file_manager.files

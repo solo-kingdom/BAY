@@ -1,3 +1,4 @@
+import os
 from unittest import TestCase
 
 from src.py.file_manager import FileManager, LocalFileSystem, File
@@ -54,3 +55,22 @@ class TestFileManager(TestCase):
         fm.add_path("/Volumes/ssd/音乐/国语")
         rm = fm.music_file_manager.get_deletable()
         fs.move_with_confirm(rm, '/Volumes/ssd/音乐/备份/')
+
+    def test_filter_and_delete(self):
+        fs = LocalFileSystem()
+        fm = FileManager(fs)
+        fm.add_path("/Volumes/ssd/音乐")
+        rm = fm.music_file_manager.get_deletable()
+        fs.delete_with_confirm(rm)
+
+    def test_delete(self):
+        # r = os.listdir("/Volumes/ssd/音乐/欧美/Hélène Rollès - Je m'appelle Hélène.mp3")
+        # print(r)
+        pt = "/Volumes/ssd/音乐/欧美/Hélène Rollès - Je m'appelle Hélène.mp3"
+        npt = os.path.normpath(pt)
+        print(os.path.normpath(pt))
+        print(os.path.exists(pt))
+        print(os.path.exists(npt))
+        os.remove(os.path.normpath(pt))
+
+
